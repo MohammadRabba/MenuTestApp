@@ -25,7 +25,7 @@ export default function VoiceflowScriptLoader() {
     script.onload = () => {
       if (window.voiceflow?.chat) {
         window.voiceflow.chat.load({
-          verify: { projectID: "68cc65db05ca159848bb00bb" },
+          verify: { projectID: "68f53bd21da80f9026055e36" },
           url: "https://general-runtime.voiceflow.com",
           versionID: "production",
           voice: {

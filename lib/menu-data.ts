@@ -1,5 +1,6 @@
 import { redis } from "@/lib/redis";
 
+// ---------- Interfaces ----------
 export interface MenuItem {
   id: string;
   name: string;
@@ -34,9 +35,9 @@ export interface Category {
   color?: string;
 }
 
-// Constants
+// ---------- Constants ----------
 const CACHE_KEY = "menuData";
-const CACHE_TTL = 3600; // 1 hour in seconds
+const CACHE_TTL = 3600; // seconds
 const localImages = [
   "/pizza1.jpg",
   "/pizza2.jpg",
@@ -48,10 +49,11 @@ function getLocalImageUrl(index: number): string {
   return localImages[index % localImages.length];
 }
 
+// ---------- Raw Fetcher Without Caching ----------
 export async function fetchMenuDataRaw(): Promise<Category[]> {
   try {
-    const webSite = "https://test.hesabate.com"; 
-    const token = "YOUR_TOKEN_HERE";
+    const webSite = "https://test.hesabate.com";
+    const token = "Vmc2QUhQak9WOGFoOGtmNXp5cEo4L3g4MHBmZE5uSGdKbk9LcnU0ZDdOWUZhRytna1BaTmxRSThEUEhLTWd3aTRUVk9acXlKK0hOWGQvKzFMbzJnRVNQOFBLZ2piWTZPakpUNEd2RVFqdVE9"; // 🔐 Replace this securely
 
     const url = `${webSite}/store_api.php`;
     const formData = new URLSearchParams();
@@ -67,13 +69,13 @@ export async function fetchMenuDataRaw(): Promise<Category[]> {
         Origin: webSite,
       },
       body: formData.toString(),
-      next: { revalidate: 3600 },
+      next: { revalidate: 3600 }, // for Next.js caching
     });
 
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const rawData = await response.json();
 
-    // نفس المعالجة السابقة...
+    // Parse response
     let categoriesArray: any[] = [];
     if (rawData?.table?.[0]) categoriesArray = rawData.table[0];
     else if (Array.isArray(rawData)) categoriesArray = rawData;
@@ -115,7 +117,7 @@ export async function fetchMenuDataRaw(): Promise<Category[]> {
           color: cat.color || "",
         };
       } else {
-        const items: MenuItem[] = (cat.level2 || cat.items || []).map((item: any) => ({
+        const items: MenuItem[] = (cat.level2 || cat.items || []).map((item: any): MenuItem => ({
           id: item.id.toString(),
           name: item.name,
           description: item.description || "",
@@ -144,6 +146,29 @@ export async function fetchMenuDataRaw(): Promise<Category[]> {
     return processedCategories;
   } catch (error) {
     console.error("❌ Failed to fetch menu data:", error);
+    return [];
+  }
+}
+
+// ---------- Cached Fetcher ----------
+export async function fetchMenuData(): Promise<Category[]> {
+  try {
+    const cached = await redis.get(CACHE_KEY);
+    if (cached) {
+      console.log("✅ Returning menu data from Redis");
+      return JSON.parse(cached);
+    }
+
+    const data = await fetchMenuDataRaw();
+
+    await redis.set(CACHE_KEY, JSON.stringify(data), {
+      EX: CACHE_TTL,
+    });
+
+    console.log("✅ Menu data fetched from API and cached");
+    return data;
+  } catch (error) {
+    console.error("❌ Redis fetchMenuData error:", error);
     return [];
   }
 }
