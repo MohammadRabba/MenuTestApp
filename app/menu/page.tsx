@@ -2,7 +2,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { MenuCategories } from "@/components/menu-categories";
 import { HeroSlider } from "@/components/hero-slider";
-import { fetchMenuData, type Category } from "@/lib/menu-data";
+import { fetchMenuData, type Category } from "@/lib/menu-cache";
 
 // No more "use client" - this is now a Server Component!
 

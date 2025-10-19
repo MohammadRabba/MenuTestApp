@@ -1,23 +1,12 @@
 import { NextResponse } from "next/server";
 
 async function fetchPosMenu() {
-  let url = process.env.POS_API_URL?.trim();
-  const token = process.env.POS_API_TOKEN;
+  const webSite = "https://test.hesabate.com"; 
+  const token = "Vmc2QUhQak9WOGFoOGtmNXp5cEo4L3g4MHBmZE5uSGdKbk9LcnU0ZDdOWUZhRytna1BaTmxRSThEUEhLTWd3aTRUVk9acXlKK0hOWGQvKzFMbzJnRVNQOFBLZ2piWTZPakpUNEd2RVFqdVE9"; 
+  const url = '${webSite}/store_api.php';
 
-  if (!url || !token) {
-    return NextResponse.json(
-      {
-        error:
-          "POS API not configured. Please set POS_API_URL and POS_API_TOKEN in .env",
-      },
-      { status: 500 }
-    );
-  }
 
-  // Ensure absolute URL with protocol
-  if (!/^https?:\/\//i.test(url)) {
-    url = `https://${url}`;
-  }
+ 
 
   const form = new URLSearchParams({
     token,

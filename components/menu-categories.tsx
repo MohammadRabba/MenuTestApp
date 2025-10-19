@@ -4,11 +4,40 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { fetchMenuData, type Category } from "@/lib/menu-data";
+import { fetchMenuData } from "@/lib/menu-cache"; // ✅ Not from `menu-data`
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string;
+  subcategory: string;
+  tags?: string[];
+  rating?: number;
+  isPopular?: boolean;
+  isNew?: boolean;
+}
 
-// NOTE: We've removed "use client", useState, and useEffect.
-// This is now a Server Component.
+export interface Level2Category {
+  id: string;
+  name: string;
+  color: string;
+  img: string;
+  but_mast_id: string;
+  items: MenuItem[];
+}
 
+export interface Category {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  tagline?: string;
+  items?: MenuItem[];
+  level2Categories?: Level2Category[];
+  color?: string;
+}
 // The component is now async
 export async function MenuCategories() {
   // Fetch data directly on the server before rendering.
