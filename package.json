@@ -44,6 +44,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "express": "^5.1.0",
     "geist": "latest",
     "google-auth-library": "^10.4.0",
     "google-spreadsheet": "^5.0.2",

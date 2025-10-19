@@ -64,7 +64,7 @@ export async function fetchMenuData(): Promise<Category[]> {
         'Origin': webSite,
       },
       body: formData.toString(),
-      mode: 'cors',
+      mode: 'cors',next: { revalidate: 3600 },
     });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

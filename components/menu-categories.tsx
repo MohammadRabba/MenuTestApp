@@ -1,58 +1,21 @@
-"use client";
+// components/MenuCategories.tsx
 
-import { useRef,useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { type Category } from "@/lib/menu-data"; // Your interface
-import { fetchMenuData, saveToSheet } from "@/lib/menu-data"; // Import fetch/save
+import { fetchMenuData, type Category } from "@/lib/menu-data";
 
-export function MenuCategories() {  const hasSavedRef = useRef(false); // Add this
+// NOTE: We've removed "use client", useState, and useEffect.
+// This is now a Server Component.
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+// The component is now async
+export async function MenuCategories() {
+  // Fetch data directly on the server before rendering.
+  const categories: Category[] = await fetchMenuData();
 
-  // Fetch and save menu on mount
-  useEffect(() => { if (hasSavedRef.current) return; // Prevent double-run
-    hasSavedRef.current = true;
-    async function fetchAndSave() {
-      try {
-        const fetchedCategories = await fetchMenuData();
-        setCategories(fetchedCategories);
-
-        // Save each MenuItem to Google Sheets
-        for (const category of fetchedCategories) {
-          if (category.level2Categories?.length) {
-            for (const sub of category.level2Categories) {
-              for (const item of sub.items) {
-                await saveToSheet(item.name, item.price, category.name);
-              }
-            }
-          }
-
-          if (category.items?.length) {
-            for (const item of category.items) {
-              await saveToSheet(item.name, item.price, category.name);
-            }
-          }
-        }
-
-      } catch (err) {
-        console.error("Error fetching or saving menu data", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchAndSave();
-  }, []);
-
-  if (isLoading) {
-    return <p className="text-center py-20">Loading menu...</p>;
-  }
-
+  // The image error handling will be done on the client in a separate component.
+  // For now, let's simplify the main component.
   return (
     <section className="py-16 bg-background">
       <div className="container mx-auto px-4">
@@ -77,9 +40,7 @@ export function MenuCategories() {  const hasSavedRef = useRef(false); // Add th
                 <div className="relative h-56 md:h-64 w-full overflow-hidden">
                   <Image
                     src={
-                      imageErrors[category.id]
-                        ? "/placeholder.svg"
-                        : category.name === "بيتزا"
+                      category.name === "بيتزا"
                         ? "/pizza2.jpg"
                         : category.name === "مشروبات"
                         ? "/cold-drinks.jpg"
@@ -89,13 +50,8 @@ export function MenuCategories() {  const hasSavedRef = useRef(false); // Add th
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    onError={() =>
-                      setImageErrors((prev) => ({
-                        ...prev,
-                        [category.id]: true,
-                      }))
-                    }
-                    priority={false}
+                    // onError is a client-side event, so it can't be used directly in a Server Component.
+                    // For progressive enhancement, a simple client component could be wrapped around the Image if needed.
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/25 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">

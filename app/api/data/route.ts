@@ -31,7 +31,7 @@ async function fetchPosMenu() {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
-      cache: "no-store",
+     next: { revalidate: 3600 },
     });
   } catch (e: any) {
     return NextResponse.json(
