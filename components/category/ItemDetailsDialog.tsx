@@ -1,3 +1,5 @@
+// components/category/ItemDetailsDialog.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -14,13 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import Image from "next/image";
 import type { MenuItem } from "@/lib/menu-data";
+import { useCart } from "@/contexts/cart-context"; // Import useCart
 
 interface ItemDetailsDialogProps {
   item: MenuItem | null;
   categoryName: string;
   isFavorite: (id: string) => boolean;
   onToggleFavorite: (item: MenuItem) => void;
-  onAddToCart: (item: MenuItem) => void;
+  // Removed onAddToCart prop
   onOpenChange: (open: boolean) => void;
 }
 
@@ -29,53 +32,100 @@ export function ItemDetailsDialog({
   categoryName,
   isFavorite,
   onToggleFavorite,
-  onAddToCart,
+  // Removed onAddToCart prop from parameters
   onOpenChange,
 }: ItemDetailsDialogProps) {
+  const { addItem } = useCart(); // Get addItem from the context
   const [dialogImageError, setDialogImageError] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [isAddingToCart, setIsAddingToCart] = useState(false); // Loading state
 
   const askAi = () => {
     if (!item) return;
-    const base = `You're asking about ${item.name}. ${item.description}`;
+    const base = `You're asking about ${item.name}. ${item.description || "No description provided."}`; // Added fallback
     const tips = `This dish is in the ${item.category} category${
       item.tags?.length ? ` and includes: ${item.tags.join(", ")}.` : "."
     }`;
     setAnswer(
-      `${base}\n\n${tips}\n\nPrice: ₪${item.price}. Let me know if you'd like pairing suggestions or dietary alternatives.`
+      `${base}\n\n${tips}\n\nPrice: ₪${item.price.toFixed(2)}. Let me know if you'd like pairing suggestions or dietary alternatives.` // Formatted price
     );
   };
 
+  // --- New handleAddToCart function specific to the dialog ---
+  const handleAddToCart = async (itemToAdd: MenuItem | null) => {
+    if (!itemToAdd) return; // Guard clause if item is null
+
+    setIsAddingToCart(true); // Set loading state
+    console.log("Adding item from dialog:", itemToAdd.name);
+
+    const itemDataForApi = {
+      itemId: itemToAdd.id.toString(),
+      name: itemToAdd.name,
+      price: itemToAdd.price,
+      quantity: 1,
+    };
+
+    const apiUrl = '/api/cart';
+
+    try {
+      console.log("Sending POST request to:", apiUrl, "with data:", itemDataForApi);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(itemDataForApi),
+      });
+
+      if (!response.ok) {
+        let errorMsg = `API request failed with status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) { /* Ignore JSON parsing error */ }
+        console.error('API Error:', errorMsg);
+        alert(`Failed to add item: ${errorMsg}`);
+        setIsAddingToCart(false); // Reset loading state on error
+        return;
+      }
+
+      const result = await response.json();
+      console.log('API Success Response:', result);
+
+      // Add to client-side cart context AFTER successful API call
+      console.log("API call successful, now calling addItem for client state.");
+      addItem({
+        id: itemToAdd.id.toString(),
+        name: itemToAdd.name,
+        price: itemToAdd.price,
+        image: itemToAdd.image,
+        category: itemToAdd.category,
+      });
+      console.log(`${itemToAdd.name} added to client cart context.`);
+      // Optionally close the dialog after adding
+      // onOpenChange(false);
+      // Optionally show a success toast here
+
+    } catch (error) {
+      console.error('Network or Fetch Error:', error);
+      alert('A network error occurred while adding the item.');
+    } finally {
+      setIsAddingToCart(false); // Reset loading state
+    }
+  };
+  // --- End of new handleAddToCart function ---
+
+
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      {/* Ensure DialogContent receives className for styling */}
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto p-0 sm:rounded-lg">
         {item && (
-          <div className="space-y-4">
-            <DialogHeader>
-              <DialogTitle className="text-xl">
-                {item.name === "عصير جزر"
-                  ? "Carrot Juice"
-                  : item.name === "بيتزا خضار"
-                  ? "Vegetable Pizza"
-                  : item.name === "شاي"
-                  ? "Tea"
-                  : item.name === "قهوة"
-                  ? "Coffee"
-                  : item.name === "عصير رمان"
-                  ? "Pomegranate Juice"
-                  : item.name === "بيتزا مخصوص"
-                  ? "Special Pizza"
-                  : item.name}
-              </DialogTitle>
-              <DialogDescription>
-                View detailed information about this menu item including
-                description, ingredients, and pricing.
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* Image with rating and label */}
-            <div className="relative rounded-xl overflow-hidden h-48">
+          // Use Fragment to avoid extra div or apply padding directly if needed
+          <>
+            {/* Image (moved outside header, takes full width at top) */}
+            <div className="relative rounded-t-lg overflow-hidden h-48 sm:h-64 w-full"> {/* Adjusted height */}
               <Image
                 src={
                   dialogImageError
@@ -96,116 +146,149 @@ export function ItemDetailsDialog({
                 }
                 alt={item.name}
                 fill
-                sizes="(max-width: 768px) 100vw, 600px"
+                sizes="(max-width: 640px) 100vw, 600px" // Adjusted sizes
                 className="object-cover"
                 onError={() => setDialogImageError(true)}
-                priority={false}
+                priority={false} // Only high-priority images above the fold
               />
-              <div className="absolute inset-0 bg-black/30" />
-              <div className="absolute bottom-3 left-3">
-                <span className="inline-flex items-center gap-2 rounded-md bg-black/70 text-white px-2 py-1 text-xs">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> 4.5
-                  (128 reviews)
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" /> {/* Gradient overlay */}
+              <div className="absolute bottom-3 left-3 z-10"> {/* Ensure badge is above overlay */}
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-black/70 text-white px-2 py-1 text-xs backdrop-blur-sm"> {/* Adjusted gap */}
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {item.rating ?? 'N/A'} {/* Use actual rating */}
+                  {/* Mock reviews removed for now, use actual data if available */}
                 </span>
               </div>
             </div>
 
-            {/* Category label and price */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary">
-                  {categoryName === "مشروبات"
-                    ? "Drinks"
-                    : categoryName === "بيتزا"
-                    ? "Pizza"
-                    : categoryName}
-                </Badge>
+            {/* Content Area with Padding */}
+            <div className="p-6 space-y-4">
+              <DialogHeader className="p-0 text-left"> {/* Adjusted padding and alignment */}
+                <DialogTitle className="text-2xl"> {/* Increased size */}
+                  {item.name === "عصير جزر"
+                    ? "Carrot Juice"
+                    : item.name === "بيتزا خضار"
+                    ? "Vegetable Pizza"
+                    : item.name === "شاي"
+                    ? "Tea"
+                    : item.name === "قهوة"
+                    ? "Coffee"
+                    : item.name === "عصير رمان"
+                    ? "Pomegranate Juice"
+                    : item.name === "بيتزا مخصوص"
+                    ? "Special Pizza"
+                    : item.name}
+                </DialogTitle>
+                {/* Optional: Add description back if needed, but often redundant with details below */}
+                {/* <DialogDescription>
+                  Detailed information about this menu item.
+                </DialogDescription> */}
+              </DialogHeader>
+
+              {/* Category label and price */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary">
+                    {categoryName === "مشروبات"
+                      ? "Drinks"
+                      : categoryName === "بيتزا"
+                      ? "Pizza"
+                      : categoryName}
+                  </Badge>
+                  {/* Add subcategory badge if available and different */}
+                  {item.subcategory && item.subcategory !== categoryName && (
+                     <Badge variant="outline">{item.subcategory}</Badge>
+                  )}
+                </div>
+                <span className="text-xl font-semibold">₪{item.price.toFixed(2)}</span> {/* Formatted price */}
               </div>
-              <span className="text-lg font-semibold">₪{item.price}</span>
-            </div>
 
-            {/* Description */}
-            <div>
-              <h4 className="font-semibold mb-1">Description</h4>
-              <p className="text-sm text-muted-foreground">
-                {item.description}
-              </p>
-            </div>
+              {/* Description */}
+              {item.description && ( // Only show if description exists
+                <div>
+                  <h4 className="font-semibold mb-1 text-sm">Description</h4>
+                  <p className="text-sm text-muted-foreground text-pretty">
+                    {item.description}
+                  </p>
+                </div>
+              )}
 
-            {/* Features (tags) */}
-            {item.tags?.length ? (
-              <div>
-                <h4 className="font-semibold mb-2">Features</h4>
-                <div className="flex flex-wrap gap-2">
-                  {item.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="px-2 py-0.5 rounded-full border text-xs text-muted-foreground"
-                    >
-                      {t}
-                    </span>
-                  ))}
+              {/* Features (tags) */}
+              {item.tags && item.tags.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2 text-sm">Tags</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {item.tags.map((t) => (
+                      <Badge key={t} variant="outline" className="font-normal">{t}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Info grid (mock) - Consider replacing with actual data */}
+              <div className="pt-3 border-t">
+                <h4 className="font-semibold mb-2 text-sm">Details</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <div className="text-muted-foreground">Prep Time:</div>
+                  <div>~15 min</div>
+                  <div className="text-muted-foreground">Calories:</div>
+                  <div>~350 kcal</div>
+                   {/* Add more relevant details if available */}
                 </div>
               </div>
-            ) : null}
 
-            {/* Additional Info grid (mock) */}
-            <div className="pt-2 border-t">
-              <h4 className="font-semibold mb-2">Additional Information</h4>
-              <div className="grid grid-cols-2 gap-y-2 text-sm">
-                <div className="text-muted-foreground">Prep Time:</div>
-                <div>15–20 minutes</div>
-                <div className="text-muted-foreground">Size:</div>
-                <div>Medium</div>
-                <div className="text-muted-foreground">Serves:</div>
-                <div>1 person</div>
-                <div className="text-muted-foreground">Calories:</div>
-                <div>350 kcal</div>
+              {/* AI textbox */}
+              <div className="space-y-2 pt-3 border-t">
+                <h4 className="font-semibold text-sm">Ask AI about this dish</h4>
+                <div className="flex gap-2">
+                  <input
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="e.g., ingredients, allergens..."
+                    className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm h-9" // Adjusted height
+                  />
+                  <Button type="button" size="sm" onClick={askAi}> {/* Adjusted size */}
+                    Ask
+                  </Button>
+                </div>
+                {answer && (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted p-3 rounded-md">
+                    {answer}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* AI textbox */}
-            <div className="space-y-2">
-              <h4 className="font-semibold">Ask our AI about this dish</h4>
-              <div className="flex gap-2">
-                <input
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask about ingredients, allergens, or pairing tips..."
-                  className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                <Button type="button" onClick={askAi}>
-                  Ask
-                </Button>
-              </div>
-              {answer && (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {answer}
-                </p>
-              )}
-            </div>
-
-            {/* Footer actions */}
-            <DialogFooter className="flex items-center sm:justify-between gap-2">
+            {/* Footer actions with Padding */}
+            <DialogFooter className="flex flex-col sm:flex-row items-center sm:justify-between gap-2 p-6 border-t bg-muted/50 rounded-b-lg"> {/* Added padding, border, bg */}
               <Button
                 variant="outline"
                 onClick={() => onToggleFavorite(item)}
-                className="cursor-pointer"
+                className="cursor-pointer w-full sm:w-auto" // Full width on mobile
+                aria-label={isFavorite(item.id.toString()) ? "Remove from favorites" : "Add to favorites"}
               >
                 <Heart className="h-4 w-4 mr-2" />
                 {isFavorite(item.id.toString())
-                  ? "Remove Favorite"
-                  : "Add to Favorites"}
+                  ? "Favorited" // Shorter text
+                  : "Favorite"}
               </Button>
               <Button
-                className="rounded-full cursor-pointer"
-                onClick={() => onAddToCart(item)}
+                className="rounded-full cursor-pointer w-full sm:w-auto" // Full width on mobile
+                onClick={() => handleAddToCart(item)} // Use the new handler
+                disabled={isAddingToCart} // Disable button while adding
               >
-                <ShoppingCart className="h-4 w-4 mr-2" /> Add to Cart – ₪
-                {item.price}
+                {isAddingToCart ? (
+                  <>
+                     <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span> {/* Spinner */}
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-4 w-4 mr-2" /> Add to Cart – ₪{item.price.toFixed(2)}
+                  </>
+                )}
               </Button>
             </DialogFooter>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
