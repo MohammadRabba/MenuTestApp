@@ -63,7 +63,7 @@ export function ItemDetailsDialog({
       itemId: itemToAdd.id.toString(),
       name: itemToAdd.name,
       price: itemToAdd.price,
-      quantity: 1,
+      quantity: itemToAdd.quantity || 1,
     };
 
     const apiUrl = '/api/cart';

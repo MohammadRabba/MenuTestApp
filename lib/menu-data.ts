@@ -8,6 +8,7 @@ export interface MenuItem {
   price: number;
   image: string;
   category: string;
+  quantity?: number;
   subcategory: string;
   tags?: string[];
   rating?: number;
