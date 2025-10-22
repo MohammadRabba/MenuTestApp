@@ -1,5 +1,4 @@
 // contexts/cart-context.tsx
-
 "use client";
 
 import type React from "react";
@@ -12,7 +11,7 @@ export interface CartItem {
   image: string;
   category: string;
   quantity: number;
-  discount?: number; // Optional discount percentage
+  discount?: number;
 }
 
 interface CartState {
@@ -32,36 +31,52 @@ type CartAction =
   | { type: "LOAD_CART"; payload: CartItem[] };
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
+  console.log("🔄 Cart reducer - Action type:", action.type);
+  
   switch (action.type) {
     case "ADD_ITEM": {
+      console.log("➕ ADD_ITEM - Payload:", action.payload);
+      console.log("📊 Current cart items:", state.items);
+      
       const existingItem = state.items.find(
         (item) => item.id === action.payload.id
       );
+      
       let newItems: CartItem[];
 
       if (existingItem) {
+        console.log("📈 Item exists, incrementing quantity. Current qty:", existingItem.quantity);
         newItems = state.items.map((item) =>
           item.id === action.payload.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
+        console.log("🆕 New item, adding to cart");
         newItems = [...state.items, { ...action.payload, quantity: 1 }];
       }
 
       const total = newItems.reduce(
-        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
+        (sum: number, item) => sum + item.price * item.quantity,
         0
       );
+      
+      console.log("✅ New cart state:", { 
+        itemCount: newItems.length, 
+        total, 
+        items: newItems.map(i => `${i.name}(${i.quantity})`)
+      });
+      
       return { ...state, items: newItems, total, isOpen: true };
     }
 
     case "REMOVE_ITEM": {
       const newItems = state.items.filter((item) => item.id !== action.payload);
       const total = newItems.reduce(
-        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
+        (sum: number, item) => sum + item.price * item.quantity,
         0
       );
+      console.log("🗑️ Item removed. New item count:", newItems.length);
       return { ...state, items: newItems, total };
     }
 
@@ -75,29 +90,35 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         .filter((item) => item.quantity > 0);
 
       const total = newItems.reduce(
-        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
+        (sum: number, item) => sum + item.price * item.quantity,
         0
       );
+      console.log("🔢 Quantity updated. New total:", total);
       return { ...state, items: newItems, total };
     }
 
     case "CLEAR_CART":
+      console.log("🧹 Cart cleared");
       return { ...state, items: [], total: 0 };
 
     case "TOGGLE_CART":
+      console.log("🔄 Cart toggled. New state:", !state.isOpen);
       return { ...state, isOpen: !state.isOpen };
 
     case "OPEN_CART":
+      console.log("📂 Cart opened");
       return { ...state, isOpen: true };
 
     case "CLOSE_CART":
+      console.log("📁 Cart closed");
       return { ...state, isOpen: false };
 
     case "LOAD_CART": {
       const total = action.payload.reduce(
-        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
+        (sum: number, item) => sum + item.price * item.quantity,
         0
       );
+      console.log("💾 Cart loaded from localStorage. Item count:", action.payload.length);
       return { ...state, items: action.payload, total };
     }
 
@@ -126,7 +147,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     total: 0,
   });
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem("restaurant-cart");
     if (savedCart) {
@@ -139,14 +159,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("restaurant-cart", JSON.stringify(state.items));
   }, [state.items]);
 
-  // Inside contexts/cart-context.tsx
   const addItem = (item: Omit<CartItem, "quantity">) => {
-    console.log("addItem called in CartContext with:", item); // <-- Log added
+    console.log("🛒 CartContext.addItem called with:", item);
     dispatch({ type: "ADD_ITEM", payload: item });
   };
 

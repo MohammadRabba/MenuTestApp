@@ -1,8 +1,7 @@
 // components/VoiceflowHandler.tsx
-
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from "@/hooks/use-toast";
 
@@ -28,7 +27,6 @@ interface VoiceflowPayload {
 
 export function VoiceflowHandler() {
   const { addItem, openCart } = useCart();
-  const processedRef = useRef(false); // Prevent duplicate processing
 
   const processVoiceOrder = async (orderPayload: VoiceflowPayload) => {
     console.log("🎯 processVoiceOrder called with:", orderPayload);
@@ -94,7 +92,7 @@ export function VoiceflowHandler() {
         console.log(`✅ Total items added to cart: ${totalQuantityAdded}`);
 
         toast({
-            title: "Items Added!",
+            title: "Items Added! 🎉",
             description: `${totalQuantityAdded} item(s) from your voice order added to the cart.`,
         });
 
@@ -123,8 +121,9 @@ export function VoiceflowHandler() {
   };
 
   useEffect(() => {
-    console.log("🎬 VoiceflowHandler mounted - Setting up event listener");
+    console.log("🎬 VoiceflowHandler mounted - Setting up listeners");
 
+    // Handler for custom event
     const handleVoiceflowData = (event: CustomEvent<VoiceflowPayload>) => {
       console.log("🎉 RECEIVED 'voiceflowOrderReady' event!");
       console.log("📦 Event detail:", event.detail);
@@ -141,24 +140,35 @@ export function VoiceflowHandler() {
       }
     };
 
-    // Listen for the custom event
-    window.addEventListener('voiceflowOrderReady', handleVoiceflowData as EventListener);
-    console.log("✅ Event listener added for 'voiceflowOrderReady'");
-
-    // FOR DEBUGGING: Listen to ALL custom events
-    const debugHandler = (event: Event) => {
-      console.log("🔍 Custom event fired:", event.type, event);
+    // Handler for postMessage from Voiceflow iframe
+    const handlePostMessage = (event: MessageEvent) => {
+      console.log("📬 PostMessage received from:", event.origin);
+      console.log("📬 PostMessage data:", event.data);
+      
+      // Check if it's a Voiceflow order message
+      if (event.data && event.data.type === 'voiceflow-order' && event.data.items) {
+        console.log("🎯 Voiceflow order detected via postMessage");
+        
+        const payload: VoiceflowPayload = {
+          items: event.data.items
+        };
+        
+        processVoiceOrder(payload);
+      }
     };
-    window.addEventListener('voiceflow-order-ready', debugHandler);
-    window.addEventListener('voicefloworder', debugHandler);
 
+    // Add event listeners
+    window.addEventListener('voiceflowOrderReady', handleVoiceflowData as EventListener);
+    window.addEventListener('message', handlePostMessage);
+    console.log("✅ Event listeners added");
+
+    // Cleanup
     return () => {
       console.log("🧹 VoiceflowHandler unmounting - Removing event listeners");
       window.removeEventListener('voiceflowOrderReady', handleVoiceflowData as EventListener);
-      window.removeEventListener('voiceflow-order-ready', debugHandler);
-      window.removeEventListener('voicefloworder', debugHandler);
+      window.removeEventListener('message', handlePostMessage);
     };
-  }, []); // Empty dependency array - only run once
+  }, []); // Empty dependency array
 
   return null;
 }
