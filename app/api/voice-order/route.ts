@@ -1,6 +1,6 @@
 // app/api/cart/add-voice-order/route.ts
 import { NextResponse } from 'next/server';
-import { fetchMenuData, type MenuItem } from '@/lib/menu-data'; //
+import { fetchMenuData, type MenuItem } from '@/lib/menu-data'; // Assuming you can reuse this
 
 interface VoiceOrderItem {
   itemId: string;
@@ -9,113 +9,81 @@ interface VoiceOrderItem {
   quantity: number;
 }
 
-// Helper function remains the same...
+// Helper to find full item details (Keep this function as is)
 async function findMenuItemDetails(itemId: string, name: string): Promise<MenuItem | null> {
   try {
-    const categories = await fetchMenuData(); //
+    const categories = await fetchMenuData();
     for (const category of categories) {
       const items = category.items || category.level2Categories?.flatMap(l2 => l2.items || []) || [];
-      // Looser matching for debugging: check ID first, then case-insensitive name
-      const foundItem = items.find(item =>
-         item.id === itemId ||
-         (name && item.name.toLowerCase() === name.toLowerCase())
-      );
+      // Prioritize matching by ID, then by name as a fallback
+      const foundItem = items.find(item => item.id === itemId) || items.find(item => item.name === name);
       if (foundItem) {
         return foundItem;
       }
     }
-    console.warn(`[API] Item not found - ID: ${itemId}, Name: ${name}`);
     return null;
   } catch (error) {
-    console.error("[API] Error in findMenuItemDetails:", error);
+    console.error("Error fetching menu data for lookup:", error);
     return null;
   }
 }
 
 
 export async function POST(request: Request) {
-  // --- Check 1: Log that the request was received ---
-  console.log('[API] Received POST request on /api/cart/add-voice-order');
-
   try {
-    // --- Check 2: Log the raw body text before parsing ---
-    // Cloning is necessary to read the body twice (once as text, once as JSON)
-    const rawText = await request.clone().text();
-    console.log('[API] Raw request body text:', rawText);
-
-    // --- Check 3: Log the parsed JSON body ---
     const body = await request.json();
-    console.log('[API] Parsed request body:', JSON.stringify(body, null, 2)); // Pretty print JSON
-
-    // --- Check 4: Log the extracted 'items' array ---
+    // Ensure the expected structure { "items": [...] }
     const voiceOrderItems: VoiceOrderItem[] = body.items;
-    console.log('[API] Extracted voiceOrderItems:', JSON.stringify(voiceOrderItems, null, 2));
 
     if (!Array.isArray(voiceOrderItems) || voiceOrderItems.length === 0) {
-       console.warn('[API] Validation Failed: voiceOrderItems is not a non-empty array.');
-      return NextResponse.json({ error: 'Invalid order format or empty order' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid order format or empty order. Expected { "items": [...] }' }, { status: 400 });
     }
 
     const enrichedCartItems = [];
     let validationFailed = false;
 
     for (const voiceItem of voiceOrderItems) {
-      // --- Check 5: Log each item being processed ---
-      console.log(`[API] Processing voiceItem: ${JSON.stringify(voiceItem)}`);
-
       if (!voiceItem.itemId || !voiceItem.name || typeof voiceItem.price !== 'number' || typeof voiceItem.quantity !== 'number' || voiceItem.quantity <= 0) {
-         console.warn('[API] Invalid item structure:', voiceItem);
-         validationFailed = true;
-         continue;
+       console.warn('Invalid item structure received:', voiceItem);
+       validationFailed = true;
+       continue; // Skip invalid items
       }
 
       const menuItemDetails = await findMenuItemDetails(voiceItem.itemId, voiceItem.name);
 
-      // --- Check 6: Log the result of finding item details ---
       if (!menuItemDetails) {
-          console.warn(`[API] Menu item details not found for ID: ${voiceItem.itemId} or Name: ${voiceItem.name}. Using placeholders.`);
-          enrichedCartItems.push({
-              id: voiceItem.itemId,
-              name: voiceItem.name,
-              price: voiceItem.price,
-              quantity: voiceItem.quantity,
-              image: '/placeholder.svg', //
-              category: 'Unknown',
-          });
+        console.warn(`Menu item details not found for ID: ${voiceItem.itemId} or Name: ${voiceItem.name}. Skipping item.`);
+         validationFailed = true; // Consider if not finding an item is a failure
+         continue; // Skip items not found in the menu data
       } else {
-         console.log(`[API] Found menuItemDetails: ${JSON.stringify(menuItemDetails)}`);
-         if (menuItemDetails.price !== voiceItem.price) {
-            console.warn(`[API] Price mismatch for item ${voiceItem.name}. Voiceflow: ${voiceItem.price}, MenuData: ${menuItemDetails.price}. Using MenuData price.`);
-         }
-         enrichedCartItems.push({
-              id: menuItemDetails.id,
-              name: menuItemDetails.name,
-              price: menuItemDetails.price,
-              quantity: voiceItem.quantity,
-              image: menuItemDetails.image || '/placeholder.svg', //
-              category: menuItemDetails.category || 'Unknown',
-          });
-      }
-    } // End for loop
+        // Optional: Price check (using menu data price as source of truth)
+        if (menuItemDetails.price !== voiceItem.price) {
+         console.warn(`Price mismatch for item ${voiceItem.name}. Voiceflow: ${voiceItem.price}, MenuData: ${menuItemDetails.price}. Using MenuData price.`);
+        }
 
-     if (validationFailed && enrichedCartItems.length === 0) {
-        console.error('[API] Validation Failed: All items were invalid.');
-        return NextResponse.json({ error: 'All items in the order were invalid' }, { status: 400 });
+        enrichedCartItems.push({
+            id: menuItemDetails.id, // Use the canonical ID from your data
+            name: menuItemDetails.name,
+            price: menuItemDetails.price, // Use price from your data
+            quantity: voiceItem.quantity,
+            image: menuItemDetails.image || '/placeholder.svg',
+            category: menuItemDetails.category || 'Unknown', // Use category from your data
+        });
+      }
     }
 
-    // --- Check 7: Log the final enriched items before sending response ---
-    console.log('[API] Final enrichedCartItems:', JSON.stringify(enrichedCartItems, null, 2));
+     // If any validation failed *and* no valid items were processed, return an error.
+     // If some items failed but others succeeded, proceed with the valid ones.
+    if (validationFailed && enrichedCartItems.length === 0) {
+       return NextResponse.json({ error: 'All items in the order were invalid or not found' }, { status: 400 });
+    }
 
+    // Return the successfully processed items
+    // The client (e.g., Voiceflow integration) will use this response
     return NextResponse.json({ success: true, cartItems: enrichedCartItems }, { status: 200 });
 
   } catch (error) {
-    // --- Check 8: Log any errors during processing ---
-    console.error('[API] Error in POST handler:', error);
-    // Check if it's a JSON parsing error specifically
-    if (error instanceof SyntaxError && error.message.includes('JSON')) {
-        console.error('[API] JSON Parsing Error Detail:', error.message);
-         return NextResponse.json({ error: 'Failed to process order', details: `Malformed JSON received: ${error.message}` }, { status: 400 }); // Return 400 for bad JSON
-    }
+    console.error('Error processing voice order:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: 'Failed to process order', details: message }, { status: 500 });
   }

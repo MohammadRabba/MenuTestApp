@@ -38,7 +38,7 @@ export function ItemCard({
       quantity: 1,
     };
 
-    const apiUrl = '/api/cart';
+    const apiUrl = '/api/voice-order';
 
     try {
       console.log("Sending POST request to:", apiUrl, "with data:", itemDataForApi);
