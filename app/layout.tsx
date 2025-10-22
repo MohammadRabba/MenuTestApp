@@ -10,6 +10,39 @@ import { FavoritesProvider } from "@/contexts/favorites-context";
 import "./globals.css";
 import VoiceflowScriptLoader from "@/components/VoiceflowScriptLoader";
 import { VoiceflowHandler } from '@/components/VoiceflowHandler'; // Adjust path if needed
+import { Button } from "@/components/ui/button";
+
+export function TestVoiceflowButton() {
+  const triggerTestOrder = () => {
+    console.log("🧪 Test button clicked - Dispatching voiceflowOrderReady event");
+    
+    const testEvent = new CustomEvent('voiceflowOrderReady', {
+      detail: {
+        items: [
+          {
+            itemId: '8324',
+            name: 'عصير رمان',
+            price: 12,
+            quantity: 1
+          }
+        ]
+      }
+    });
+    
+    window.dispatchEvent(testEvent);
+    console.log("✅ Test event dispatched");
+  };
+
+  return (
+    <Button 
+      onClick={triggerTestOrder}
+      className="fixed bottom-4 left-4 z-50 bg-purple-600 hover:bg-purple-700"
+    >
+      Test Voice Order
+    </Button>
+  );
+}
+
 export const metadata: Metadata = {
   title: "Authentic Middle Eastern Restaurant",
   description:
@@ -69,7 +102,8 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           disableTransitionOnChange
-        >
+        >  <TestVoiceflowButton />
+
           <CartProvider>
             <FavoritesProvider>
               <VoiceflowHandler /> {/* <-- Handler component added here */}
