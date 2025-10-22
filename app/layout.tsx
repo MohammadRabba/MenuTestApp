@@ -7,8 +7,7 @@ import { CartProvider } from "@/contexts/cart-context";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import { Toaster } from "@/components/ui/toaster";
 import VoiceflowScriptLoader from "@/components/VoiceflowScriptLoader";
-import { VoiceflowHandler } from "@/components/VoiceflowHandler";
-import { TestVoiceflowButton } from "@/components/TestVoiceflowButton"; // Add this import
+import VoiceflowHandler from "@/components/VoiceflowHandler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,7 +41,6 @@ export default function RootLayout({
               <Toaster />
               <VoiceflowScriptLoader />
               <VoiceflowHandler />
-              <TestVoiceflowButton /> {/* Add this line */}
             </FavoritesProvider>
           </CartProvider>
         </ThemeProvider>
