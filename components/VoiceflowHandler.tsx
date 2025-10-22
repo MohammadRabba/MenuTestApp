@@ -35,7 +35,7 @@ export function VoiceflowHandler() {
   // This function will call your API and update the cart
   const processVoiceOrder = async (orderPayload: VoiceflowPayload) => {
     console.log("Received order payload from Voiceflow:", orderPayload);
-
+console.log("processVoiceOrder called with payload:", orderPayload); // <-- ADD LOG
     if (!orderPayload || !Array.isArray(orderPayload.items) || orderPayload.items.length === 0) {
         console.error("Invalid or empty order payload received.");
         toast({ title: "Order Error", description: "Received an invalid order from voice assistant.", variant: "destructive" });
@@ -69,7 +69,7 @@ export function VoiceflowHandler() {
       // API call was successful (200 OK)
       if (responseData.success && Array.isArray(responseData.cartItems)) {
         console.log('API successful, adding items to client cart:', responseData.cartItems);
-
+console.log('API call successful. Data received:', responseData.cartItems); // <-- ADD LOG
         // Add each validated item from the API response to the client-side cart
         responseData.cartItems.forEach((item: ApiCartItem) => {
           // Call addItem multiple times if quantity > 1, as addItem typically handles adding one at a time
@@ -109,11 +109,16 @@ export function VoiceflowHandler() {
   // method of receiving data from the Voiceflow widget.
   useEffect(() => {
     // Example: Listening for a custom event dispatched by Voiceflow's JS
-    const handleVoiceflowData = (event: CustomEvent<VoiceflowPayload>) => {
-        if (event.detail && event.detail.items) {
-             processVoiceOrder(event.detail);
-        }
-    };
+   // Inside useEffect in VoiceflowHandler.tsx
+const handleVoiceflowData = (event: CustomEvent<VoiceflowPayload>) => {
+    console.log("Received data from Voiceflow:", event.detail); // <-- ADD THIS LOG
+    if (event.detail && event.detail.items) {
+         processVoiceOrder(event.detail);
+    } else {
+        console.warn("Voiceflow data received, but format is unexpected:", event.detail);
+    }
+};
+window.addEventListener('voiceflowOrderReady', handleVoiceflowData as EventListener);
 
     window.addEventListener('voiceflowOrderReady', handleVoiceflowData as EventListener);
 

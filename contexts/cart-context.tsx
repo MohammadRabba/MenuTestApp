@@ -142,9 +142,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("restaurant-cart", JSON.stringify(state.items));
   }, [state.items]);
 
-  const addItem = (item: Omit<CartItem, "quantity">) => {
-    dispatch({ type: "ADD_ITEM", payload: item });
-  };
+  // Inside contexts/cart-context.tsx
+const addItem = (item: Omit<CartItem, "quantity">) => {
+  console.log("addItem called in CartContext with:", item); // <-- ADD LOG
+  dispatch({ type: "ADD_ITEM", payload: item });
+};
 
   const removeItem = (id: string) => {
     dispatch({ type: "REMOVE_ITEM", payload: id });
