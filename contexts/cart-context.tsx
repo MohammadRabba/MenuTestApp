@@ -21,7 +21,8 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: "ADD_ITEM"; payload: Omit<CartItem, "quantity"> }
+  // ADD_ITEM payload now accepts optional quantity
+  | { type: "ADD_ITEM"; payload: Omit<CartItem, "quantity"> & { quantity?: number } }
   | { type: "REMOVE_ITEM"; payload: string }
   | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number } }
   | { type: "CLEAR_CART" }
@@ -32,41 +33,46 @@ type CartAction =
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   console.log("🔄 Cart reducer - Action type:", action.type);
-  
+
   switch (action.type) {
     case "ADD_ITEM": {
       console.log("➕ ADD_ITEM - Payload:", action.payload);
       console.log("📊 Current cart items:", state.items);
-      
+
+      const qtyToAdd = action.payload.quantity ?? 1;
+
       const existingItem = state.items.find(
         (item) => item.id === action.payload.id
       );
-      
+
       let newItems: CartItem[];
 
       if (existingItem) {
-        console.log("📈 Item exists, incrementing quantity. Current qty:", existingItem.quantity);
+        console.log("📈 Item exists, incrementing quantity. Current qty:", existingItem.quantity, "Adding:", qtyToAdd);
         newItems = state.items.map((item) =>
           item.id === action.payload.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + qtyToAdd }
             : item
         );
       } else {
-        console.log("🆕 New item, adding to cart");
-        newItems = [...state.items, { ...action.payload, quantity: 1 }];
+        console.log("🆕 New item, adding to cart with quantity:", qtyToAdd);
+        newItems = [
+          ...state.items,
+          { ...action.payload, quantity: qtyToAdd } as CartItem,
+        ];
       }
 
       const total = newItems.reduce(
         (sum: number, item) => sum + item.price * item.quantity,
         0
       );
-      
-      console.log("✅ New cart state:", { 
-        itemCount: newItems.length, 
-        total, 
+
+      console.log("✅ New cart state:", {
+        itemCount: newItems.length,
+        total,
         items: newItems.map(i => `${i.name}(${i.quantity})`)
       });
-      
+
       return { ...state, items: newItems, total, isOpen: true };
     }
 
@@ -129,7 +135,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
 interface CartContextType {
   state: CartState;
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -163,9 +169,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("restaurant-cart", JSON.stringify(state.items));
   }, [state.items]);
 
-  const addItem = (item: Omit<CartItem, "quantity">) => {
-    console.log("🛒 CartContext.addItem called with:", item);
-    dispatch({ type: "ADD_ITEM", payload: item });
+  // addItem now accepts a quantity param
+  const addItem = (item: Omit<CartItem, "quantity">, quantity?: number) => {
+    console.log("🛒 CartContext.addItem called with:", item, "quantity:", quantity);
+    dispatch({ type: "ADD_ITEM", payload: { ...item, quantity } });
   };
 
   const removeItem = (id: string) => {
