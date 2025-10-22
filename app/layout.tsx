@@ -9,7 +9,7 @@ import { CartProvider } from "@/contexts/cart-context";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import "./globals.css";
 import VoiceflowScriptLoader from "@/components/VoiceflowScriptLoader";
-
+import { VoiceflowHandler } from '@/components/VoiceflowHandler'; // Adjust path if needed
 export const metadata: Metadata = {
   title: "Authentic Middle Eastern Restaurant",
   description:
@@ -72,6 +72,7 @@ export default function RootLayout({
         >
           <CartProvider>
             <FavoritesProvider>
+              <VoiceflowHandler /> {/* <-- Handler component added here */}
               <Suspense fallback={null}>{children}</Suspense>
             </FavoritesProvider>
           </CartProvider>

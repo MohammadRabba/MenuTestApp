@@ -1,4 +1,4 @@
-// app/api/cart/add-voice-order/route.ts
+// app/api/voice-order/route.ts
 import { NextResponse } from 'next/server';
 import { fetchMenuData, type MenuItem } from '@/lib/menu-data'; // Assuming you can reuse this
 
@@ -14,6 +14,7 @@ async function findMenuItemDetails(itemId: string, name: string): Promise<MenuIt
   try {
     const categories = await fetchMenuData();
     for (const category of categories) {
+      // Check both top-level items and items within level2Categories
       const items = category.items || category.level2Categories?.flatMap(l2 => l2.items || []) || [];
       // Prioritize matching by ID, then by name as a fallback
       const foundItem = items.find(item => item.id === itemId) || items.find(item => item.name === name);
@@ -21,7 +22,7 @@ async function findMenuItemDetails(itemId: string, name: string): Promise<MenuIt
         return foundItem;
       }
     }
-    return null;
+    return null; // Item not found in any category
   } catch (error) {
     console.error("Error fetching menu data for lookup:", error);
     return null;
@@ -40,51 +41,57 @@ export async function POST(request: Request) {
     }
 
     const enrichedCartItems = [];
-    let validationFailed = false;
+    let validationFailed = false; // To track if any item failed validation or wasn't found
 
     for (const voiceItem of voiceOrderItems) {
+      // Basic validation for each item
       if (!voiceItem.itemId || !voiceItem.name || typeof voiceItem.price !== 'number' || typeof voiceItem.quantity !== 'number' || voiceItem.quantity <= 0) {
        console.warn('Invalid item structure received:', voiceItem);
        validationFailed = true;
-       continue; // Skip invalid items
+       continue; // Skip this invalid item
       }
 
+      // Find the corresponding item details from your menu data
       const menuItemDetails = await findMenuItemDetails(voiceItem.itemId, voiceItem.name);
 
       if (!menuItemDetails) {
+        // If the item isn't found in your menu data
         console.warn(`Menu item details not found for ID: ${voiceItem.itemId} or Name: ${voiceItem.name}. Skipping item.`);
-         validationFailed = true; // Consider if not finding an item is a failure
-         continue; // Skip items not found in the menu data
+         validationFailed = true; // Mark that at least one item failed
+         continue; // Skip items not found
       } else {
-        // Optional: Price check (using menu data price as source of truth)
+        // Optional: Price consistency check
         if (menuItemDetails.price !== voiceItem.price) {
-         console.warn(`Price mismatch for item ${voiceItem.name}. Voiceflow: ${voiceItem.price}, MenuData: ${menuItemDetails.price}. Using MenuData price.`);
+         console.warn(`Price mismatch for item ${voiceItem.name}. Voiceflow price: ${voiceItem.price}, MenuData price: ${menuItemDetails.price}. Using MenuData price.`);
         }
 
+        // Add the validated and enriched item to the list
         enrichedCartItems.push({
-            id: menuItemDetails.id, // Use the canonical ID from your data
+            id: menuItemDetails.id, // Use the canonical ID from your data source
             name: menuItemDetails.name,
-            price: menuItemDetails.price, // Use price from your data
+            price: menuItemDetails.price, // Use the price from your data source as the source of truth
             quantity: voiceItem.quantity,
-            image: menuItemDetails.image || '/placeholder.svg',
-            category: menuItemDetails.category || 'Unknown', // Use category from your data
+            image: menuItemDetails.image || '/placeholder.svg', // Use image from data source or fallback
+            category: menuItemDetails.category || 'Unknown', // Use category from data source or fallback
         });
       }
     }
 
-     // If any validation failed *and* no valid items were processed, return an error.
-     // If some items failed but others succeeded, proceed with the valid ones.
+     // If any validation failed *and* no valid items ended up in the list, return an error.
+     // If some items failed but others succeeded, the successful ones will still be returned.
     if (validationFailed && enrichedCartItems.length === 0) {
-       return NextResponse.json({ error: 'All items in the order were invalid or not found' }, { status: 400 });
+       return NextResponse.json({ error: 'All items in the order were invalid or not found in the menu' }, { status: 400 });
     }
 
-    // Return the successfully processed items
-    // The client (e.g., Voiceflow integration) will use this response
+    // Return the list of successfully processed items
+    // The client-side code (e.g., Voiceflow integration) will use this response to update the actual cart
+    console.log('Successfully processed voice order items:', enrichedCartItems);
     return NextResponse.json({ success: true, cartItems: enrichedCartItems }, { status: 200 });
 
   } catch (error) {
     console.error('Error processing voice order:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: 'Failed to process order', details: message }, { status: 500 });
+    // Return a generic server error response
+    return NextResponse.json({ error: 'Failed to process voice order due to a server error', details: message }, { status: 500 });
   }
 }
