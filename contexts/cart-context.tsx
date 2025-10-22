@@ -1,3 +1,5 @@
+// contexts/cart-context.tsx
+
 "use client";
 
 import type React from "react";
@@ -48,7 +50,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       }
 
       const total = newItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
         0
       );
       return { ...state, items: newItems, total, isOpen: true };
@@ -57,7 +59,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case "REMOVE_ITEM": {
       const newItems = state.items.filter((item) => item.id !== action.payload);
       const total = newItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
         0
       );
       return { ...state, items: newItems, total };
@@ -73,7 +75,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         .filter((item) => item.quantity > 0);
 
       const total = newItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
         0
       );
       return { ...state, items: newItems, total };
@@ -93,7 +95,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
     case "LOAD_CART": {
       const total = action.payload.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum: number, item) => sum + item.price * item.quantity, // Added type annotation
         0
       );
       return { ...state, items: action.payload, total };
@@ -143,10 +145,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [state.items]);
 
   // Inside contexts/cart-context.tsx
-const addItem = (item: Omit<CartItem, "quantity">) => {
-  console.log("addItem called in CartContext with:", item); // <-- ADD LOG
-  dispatch({ type: "ADD_ITEM", payload: item });
-};
+  const addItem = (item: Omit<CartItem, "quantity">) => {
+    console.log("addItem called in CartContext with:", item); // <-- Log added
+    dispatch({ type: "ADD_ITEM", payload: item });
+  };
 
   const removeItem = (id: string) => {
     dispatch({ type: "REMOVE_ITEM", payload: id });
